@@ -1,0 +1,5 @@
+"Company","Model","AIC","BIC","Shibata","HannanQuinn","Convergence"
+"EDP","AR(1)-sGARCH(1,1)-std",3.4708,3.5594,3.4695,3.5065,0
+"GALP","eGARCH(1,1)-std",3.8481,3.9367,3.8468,3.8838,0
+"MOTA","sGARCH(1,1)-std",4.8809,4.9548,4.8801,4.9107,0
+"NAVIGATOR","eGARCH(1,1)-std",2.9661,3.0547,2.9648,3.0018,0

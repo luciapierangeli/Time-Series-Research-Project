@@ -1,0 +1,17 @@
+"Company","Test","Lag","Statistic","p_value"
+"EDP","Returns",10,9.5759,0.4785
+"EDP","Returns",20,22.3579,0.3214
+"EDP","Squared returns",10,39.9363,0
+"EDP","Squared returns",20,61.0314,0
+"GALP","Returns",10,26.0541,0.0037
+"GALP","Returns",20,34.1367,0.0252
+"GALP","Squared returns",10,1.4247,0.9992
+"GALP","Squared returns",20,2.3381,1
+"MOTA","Returns",10,13.8376,0.1805
+"MOTA","Returns",20,19.7571,0.4732
+"MOTA","Squared returns",10,14.9081,0.1354
+"MOTA","Squared returns",20,17.826,0.5989
+"NAVIGATOR","Returns",10,6.6966,0.7537
+"NAVIGATOR","Returns",20,13.7311,0.8439
+"NAVIGATOR","Squared returns",10,12.246,0.2689
+"NAVIGATOR","Squared returns",20,18.1509,0.5775

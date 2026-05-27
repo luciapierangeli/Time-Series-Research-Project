@@ -1,0 +1,25 @@
+"Company","Test","Lag","Statistic","p_value"
+"EDP","Ljung-Box standardized residuals",10,7.745,0.6537
+"EDP","Ljung-Box standardized residuals",20,20.3677,0.4352
+"EDP","Ljung-Box squared standardized residuals",10,1.4034,0.9992
+"EDP","Ljung-Box squared standardized residuals",20,10.4465,0.9593
+"EDP","ARCH LM standardized residuals",5,0.4324,0.9944
+"EDP","ARCH LM standardized residuals",10,1.4856,0.999
+"GALP","Ljung-Box standardized residuals",10,17.7266,0.0598
+"GALP","Ljung-Box standardized residuals",20,26.8326,0.14
+"GALP","Ljung-Box squared standardized residuals",10,0.5019,1
+"GALP","Ljung-Box squared standardized residuals",20,1.1739,1
+"GALP","ARCH LM standardized residuals",5,0.0436,1
+"GALP","ARCH LM standardized residuals",10,0.5514,1
+"MOTA","Ljung-Box standardized residuals",10,14.577,0.1483
+"MOTA","Ljung-Box standardized residuals",20,24.3836,0.226
+"MOTA","Ljung-Box squared standardized residuals",10,3.0031,0.9814
+"MOTA","Ljung-Box squared standardized residuals",20,7.1458,0.9962
+"MOTA","ARCH LM standardized residuals",5,1.1171,0.9526
+"MOTA","ARCH LM standardized residuals",10,3.8038,0.9558
+"NAVIGATOR","Ljung-Box standardized residuals",10,6.3845,0.782
+"NAVIGATOR","Ljung-Box standardized residuals",20,15.3328,0.7571
+"NAVIGATOR","Ljung-Box squared standardized residuals",10,12.2213,0.2705
+"NAVIGATOR","Ljung-Box squared standardized residuals",20,22.0132,0.3398
+"NAVIGATOR","ARCH LM standardized residuals",5,3.4457,0.6316
+"NAVIGATOR","ARCH LM standardized residuals",10,10.585,0.3907
