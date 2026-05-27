@@ -1,0 +1,1055 @@
+# ============================================================
+# TIME SERIES - Research Project 2025/2026
+# Assignment 2 - Stock Prices: EDP, MOTA ENGIL, GALP, NAVIGATOR
+# Point 1: Log-Returns Calculation and Initial Examination
+# ============================================================
+
+# ============================================================
+# 0. LOAD REQUIRED LIBRARIES
+# ============================================================
+
+library(readxl)
+library(zoo)
+library(moments)
+
+# Set working directory to where your .xls files are located
+setwd("C:/Users/lucia/OneDrive/Desktop/TECNICO/2 semestre/time series/research project")
+
+# ============================================================
+# 1. LOAD DATA
+# ============================================================
+
+read_stock <- function(filename) {
+  df <- read_xls(filename, skip = 3, col_names = TRUE)
+  
+  # Keep only the relevant columns
+  df <- df[, c("Date", "Close")]
+  
+  # Convert variables
+  df$Date  <- as.Date(df$Date)
+  df$Close <- as.numeric(df$Close)
+  
+  # Remove missing values and order by date
+  df <- na.omit(df)
+  df <- df[order(df$Date), ]
+  
+  return(df)
+}
+
+edp  <- read_stock("EDP.xls")
+galp <- read_stock("GALP ENERGIA-NOM.xls")
+mota <- read_stock("MOTA ENGIL.xls")
+nav  <- read_stock("THE NAVIGATOR COMP.xls")
+
+# ============================================================
+# 2. DATA OVERVIEW
+# ============================================================
+
+cat("=== DATA OVERVIEW ===\n")
+
+cat("EDP:       ", nrow(edp),  "trading days,",
+    format(edp$Date[1]),  "to", format(tail(edp$Date, 1)),  "\n")
+
+cat("GALP:      ", nrow(galp), "trading days,",
+    format(galp$Date[1]), "to", format(tail(galp$Date, 1)), "\n")
+
+cat("MOTA ENGIL:", nrow(mota), "trading days,",
+    format(mota$Date[1]), "to", format(tail(mota$Date, 1)), "\n")
+
+cat("NAVIGATOR: ", nrow(nav),  "trading days,",
+    format(nav$Date[1]),  "to", format(tail(nav$Date, 1)),  "\n")
+
+# ============================================================
+# 3. CHECK DATE ALIGNMENT
+# ============================================================
+
+cat("\n=== DATE ALIGNMENT CHECK ===\n")
+cat("EDP vs GALP:", identical(edp$Date, galp$Date), "\n")
+cat("EDP vs MOTA:", identical(edp$Date, mota$Date), "\n")
+cat("EDP vs NAV: ", identical(edp$Date, nav$Date),  "\n")
+
+# Stop the script if the trading dates are not aligned
+if (!identical(edp$Date, galp$Date) ||
+    !identical(edp$Date, mota$Date) ||
+    !identical(edp$Date, nav$Date)) {
+  stop("The trading dates are not perfectly aligned. A merge by Date is required before proceeding.")
+}
+
+# ============================================================
+# 4. COMPUTE LOG-RETURNS
+# ============================================================
+# Log-returns are computed as:
+# r_t = 100 * [log(P_t) - log(P_{t-1})]
+# Multiplication by 100 expresses returns in percentage terms.
+
+edp$logret  <- c(NA, 100 * diff(log(edp$Close)))
+galp$logret <- c(NA, 100 * diff(log(galp$Close)))
+mota$logret <- c(NA, 100 * diff(log(mota$Close)))
+nav$logret  <- c(NA, 100 * diff(log(nav$Close)))
+
+# Remove first NA row
+edp_r  <- na.omit(edp$logret)
+galp_r <- na.omit(galp$logret)
+mota_r <- na.omit(mota$logret)
+nav_r  <- na.omit(nav$logret)
+
+# Dates for plotting returns
+dates_r <- edp$Date[-1]
+
+# ============================================================
+# 5. SUMMARY STATISTICS
+# ============================================================
+
+summary_stats <- function(r) {
+  c(
+    Observations = length(r),
+    Mean         = mean(r),
+    StdDev       = sd(r),
+    Min          = min(r),
+    Max          = max(r),
+    Skewness     = skewness(r),
+    ExKurtosis   = kurtosis(r) - 3
+  )
+}
+
+stats_table <- rbind(
+  EDP       = summary_stats(edp_r),
+  GALP      = summary_stats(galp_r),
+  MOTA      = summary_stats(mota_r),
+  NAVIGATOR = summary_stats(nav_r)
+)
+
+stats_table <- round(stats_table, 4)
+
+cat("\n=== LOG-RETURN SUMMARY STATISTICS (%) ===\n")
+print(stats_table)
+
+# Save summary statistics for report
+write.csv(stats_table, "logreturn_summary_stats.csv", row.names = TRUE)
+
+# ============================================================
+# 6. TIME PLOTS OF CLOSING PRICES
+# ============================================================
+
+png("GARCH_closingprice.png", width = 1200, height = 900, res = 120)
+
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+plot(edp$Date, edp$Close,
+     type = "l", col = "steelblue", lwd = 1.2,
+     main = "EDP — Closing Price",
+     xlab = "Date", ylab = "Price (EUR)")
+
+plot(galp$Date, galp$Close,
+     type = "l", col = "darkgreen", lwd = 1.2,
+     main = "GALP — Closing Price",
+     xlab = "Date", ylab = "Price (EUR)")
+
+plot(mota$Date, mota$Close,
+     type = "l", col = "darkorange", lwd = 1.2,
+     main = "MOTA — Closing Price",
+     xlab = "Date", ylab = "Price (EUR)")
+
+plot(nav$Date, nav$Close,
+     type = "l", col = "purple", lwd = 1.2,
+     main = "NAVIGATOR — Closing Price",
+     xlab = "Date", ylab = "Price (EUR)")
+
+par(mfrow = c(1, 1))
+
+dev.off()
+
+# Also show the plot in R
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+plot(edp$Date, edp$Close,
+     type = "l", col = "steelblue", lwd = 1.2,
+     main = "EDP — Closing Price",
+     xlab = "Date", ylab = "Price (EUR)")
+
+plot(galp$Date, galp$Close,
+     type = "l", col = "darkgreen", lwd = 1.2,
+     main = "GALP — Closing Price",
+     xlab = "Date", ylab = "Price (EUR)")
+
+plot(mota$Date, mota$Close,
+     type = "l", col = "darkorange", lwd = 1.2,
+     main = "MOTA — Closing Price",
+     xlab = "Date", ylab = "Price (EUR)")
+
+plot(nav$Date, nav$Close,
+     type = "l", col = "purple", lwd = 1.2,
+     main = "NAVIGATOR — Closing Price",
+     xlab = "Date", ylab = "Price (EUR)")
+
+par(mfrow = c(1, 1))
+
+# ============================================================
+# 7. TIME PLOTS OF LOG-RETURNS
+# ============================================================
+
+png("GARCH_logreturns.png", width = 1200, height = 900, res = 120)
+
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+plot(dates_r, edp_r,
+     type = "l", col = "steelblue", lwd = 0.8,
+     main = "EDP — Log-Returns",
+     xlab = "Date", ylab = "Log-Return (%)")
+abline(h = 0, col = "red", lty = 2)
+
+plot(dates_r, galp_r,
+     type = "l", col = "darkgreen", lwd = 0.8,
+     main = "GALP — Log-Returns",
+     xlab = "Date", ylab = "Log-Return (%)")
+abline(h = 0, col = "red", lty = 2)
+
+plot(dates_r, mota_r,
+     type = "l", col = "darkorange", lwd = 0.8,
+     main = "MOTA — Log-Returns",
+     xlab = "Date", ylab = "Log-Return (%)")
+abline(h = 0, col = "red", lty = 2)
+
+plot(dates_r, nav_r,
+     type = "l", col = "purple", lwd = 0.8,
+     main = "NAVIGATOR — Log-Returns",
+     xlab = "Date", ylab = "Log-Return (%)")
+abline(h = 0, col = "red", lty = 2)
+
+par(mfrow = c(1, 1))
+
+dev.off()
+
+# Also show the plot in R
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+plot(dates_r, edp_r,
+     type = "l", col = "steelblue", lwd = 0.8,
+     main = "EDP — Log-Returns",
+     xlab = "Date", ylab = "Log-Return (%)")
+abline(h = 0, col = "red", lty = 2)
+
+plot(dates_r, galp_r,
+     type = "l", col = "darkgreen", lwd = 0.8,
+     main = "GALP — Log-Returns",
+     xlab = "Date", ylab = "Log-Return (%)")
+abline(h = 0, col = "red", lty = 2)
+
+plot(dates_r, mota_r,
+     type = "l", col = "darkorange", lwd = 0.8,
+     main = "MOTA — Log-Returns",
+     xlab = "Date", ylab = "Log-Return (%)")
+abline(h = 0, col = "red", lty = 2)
+
+plot(dates_r, nav_r,
+     type = "l", col = "purple", lwd = 0.8,
+     main = "NAVIGATOR — Log-Returns",
+     xlab = "Date", ylab = "Log-Return (%)")
+abline(h = 0, col = "red", lty = 2)
+
+par(mfrow = c(1, 1))
+
+# ============================================================
+# 8. SAVE LOG-RETURNS FOR NEXT STEPS
+# ============================================================
+
+logrets <- data.frame(
+  Date      = dates_r,
+  EDP       = as.numeric(edp_r),
+  GALP      = as.numeric(galp_r),
+  MOTA      = as.numeric(mota_r),
+  NAVIGATOR = as.numeric(nav_r)
+)
+
+write.csv(logrets, "logrets_all.csv", row.names = FALSE)
+
+cat("\n\nLog-returns saved to 'logrets_all.csv'\n")
+cat("Summary statistics saved to 'logreturn_summary_stats.csv'\n")
+cat("Figures saved as 'GARCH_closingprice.png' and 'GARCH_logreturns.png'\n")
+cat("Objects in memory: edp_r, galp_r, mota_r, nav_r\n")
+cat("Ready for next step: ACF/PACF, Ljung-Box tests and ARCH effects.\n")
+
+# Step (b): Initial Identification of Dependence Orders
+
+
+
+library(FinTS)     # ArchTest
+library(tseries)   # additional tests if needed
+
+
+
+returns_list <- list(
+  EDP       = as.numeric(edp_r),
+  GALP      = as.numeric(galp_r),
+  MOTA      = as.numeric(mota_r),
+  NAVIGATOR = as.numeric(nav_r)
+)
+
+# ============================================================
+# 2. ACF OF RETURNS
+# ============================================================
+# This checks linear autocorrelation in the return series.
+
+png("GARCH_ACF_returns.png", width = 1200, height = 900, res = 120)
+
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+for (name in names(returns_list)) {
+  acf(returns_list[[name]],
+      lag.max = 30,
+      main = paste(name, "— ACF of Returns"),
+      col = "steelblue")
+}
+
+par(mfrow = c(1, 1))
+dev.off()
+
+# Show in R
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+for (name in names(returns_list)) {
+  acf(returns_list[[name]],
+      lag.max = 30,
+      main = paste(name, "— ACF of Returns"),
+      col = "steelblue")
+}
+
+par(mfrow = c(1, 1))
+
+# ============================================================
+# 3. ACF OF SQUARED RETURNS
+# ============================================================
+# This is more important for GARCH modelling.
+# Significant autocorrelation in squared returns suggests volatility clustering.
+
+png("GARCH_ACF_squared_returns.png", width = 1200, height = 900, res = 120)
+
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+for (name in names(returns_list)) {
+  acf(returns_list[[name]]^2,
+      lag.max = 30,
+      main = paste(name, "— ACF of Squared Returns"),
+      col = "darkred")
+}
+
+par(mfrow = c(1, 1))
+dev.off()
+
+# Show in R
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+for (name in names(returns_list)) {
+  acf(returns_list[[name]]^2,
+      lag.max = 30,
+      main = paste(name, "— ACF of Squared Returns"),
+      col = "darkred")
+}
+
+par(mfrow = c(1, 1))
+
+# ============================================================
+# 4. LJUNG-BOX TESTS ON RETURNS AND SQUARED RETURNS
+# ============================================================
+# Returns: checks remaining linear autocorrelation.
+# Squared returns: checks autocorrelation in volatility.
+
+cat("\n=== LJUNG-BOX TESTS ===\n")
+
+lb_results <- data.frame()
+
+for (name in names(returns_list)) {
+  
+  r <- returns_list[[name]]
+  
+  lb_ret_10 <- Box.test(r, lag = 10, type = "Ljung-Box")
+  lb_ret_20 <- Box.test(r, lag = 20, type = "Ljung-Box")
+  
+  lb_sq_10 <- Box.test(r^2, lag = 10, type = "Ljung-Box")
+  lb_sq_20 <- Box.test(r^2, lag = 20, type = "Ljung-Box")
+  
+  lb_results <- rbind(
+    lb_results,
+    data.frame(
+      Company = name,
+      Test = "Returns",
+      Lag = 10,
+      Statistic = as.numeric(lb_ret_10$statistic),
+      p_value = lb_ret_10$p.value
+    ),
+    data.frame(
+      Company = name,
+      Test = "Returns",
+      Lag = 20,
+      Statistic = as.numeric(lb_ret_20$statistic),
+      p_value = lb_ret_20$p.value
+    ),
+    data.frame(
+      Company = name,
+      Test = "Squared returns",
+      Lag = 10,
+      Statistic = as.numeric(lb_sq_10$statistic),
+      p_value = lb_sq_10$p.value
+    ),
+    data.frame(
+      Company = name,
+      Test = "Squared returns",
+      Lag = 20,
+      Statistic = as.numeric(lb_sq_20$statistic),
+      p_value = lb_sq_20$p.value
+    )
+  )
+}
+
+lb_results$Statistic <- round(lb_results$Statistic, 4)
+lb_results$p_value   <- round(lb_results$p_value, 4)
+
+print(lb_results)
+
+write.csv(lb_results, "ljungbox_returns_results.csv", row.names = FALSE)
+
+# ============================================================
+# 5. ARCH LM TEST
+# ============================================================
+# H0: no ARCH effects
+# If p-value < 0.05, there is evidence of conditional heteroskedasticity.
+
+# Install once if needed
+install.packages("FinTS")
+
+# Load package
+library(FinTS)
+cat("\n=== ARCH LM TESTS ===\n")
+
+arch_results <- data.frame()
+
+for (name in names(returns_list)) {
+  
+  r <- returns_list[[name]]
+  
+  arch_5  <- ArchTest(r, lags = 5)
+  arch_10 <- ArchTest(r, lags = 10)
+  arch_15 <- ArchTest(r, lags = 15)
+  
+  arch_results <- rbind(
+    arch_results,
+    data.frame(
+      Company = name,
+      Lags = 5,
+      Statistic = as.numeric(arch_5$statistic),
+      p_value = arch_5$p.value
+    ),
+    data.frame(
+      Company = name,
+      Lags = 10,
+      Statistic = as.numeric(arch_10$statistic),
+      p_value = arch_10$p.value
+    ),
+    data.frame(
+      Company = name,
+      Lags = 15,
+      Statistic = as.numeric(arch_15$statistic),
+      p_value = arch_15$p.value
+    )
+  )
+}
+
+arch_results$Statistic <- round(arch_results$Statistic, 4)
+arch_results$p_value   <- round(arch_results$p_value, 4)
+
+print(arch_results)
+
+write.csv(arch_results, "arch_lm_results.csv", row.names = FALSE)
+
+# ============================================================
+# 6. SHORT INTERPRETATION GUIDE
+# ============================================================
+
+cat("\n=== INTERPRETATION GUIDE ===\n")
+cat("1. If Ljung-Box p-values on returns are small, returns have linear autocorrelation.\n")
+cat("2. If Ljung-Box p-values on squared returns are small, volatility is autocorrelated.\n")
+cat("3. If ARCH LM p-values are small, GARCH-type models are justified.\n")
+cat("4. Next step: estimate and compare GARCH-type models for each company.\n")
+
+cat("\nFigures saved:\n")
+cat(" - GARCH_ACF_returns.png\n")
+cat(" - GARCH_ACF_squared_returns.png\n")
+cat("Tables saved:\n")
+cat(" - ljungbox_returns_results.csv\n")
+cat(" - arch_lm_results.csv\n")
+
+
+# Step (c): GARCH-type Model Estimation and Selection
+
+
+# Install once if needed
+#install.packages("rugarch")
+
+library(rugarch)
+
+
+
+returns_list <- list(
+  EDP       = as.numeric(edp_r),
+  GALP      = as.numeric(galp_r),
+  MOTA      = as.numeric(mota_r),
+  NAVIGATOR = as.numeric(nav_r)
+)
+
+# ============================================================
+# 2. FUNCTION TO FIT ONE GARCH MODEL
+# ============================================================
+# This function estimates a GARCH-type model and returns the fit.
+# tryCatch is used because some models may fail to converge.
+
+fit_garch_model <- function(r, arma_order = c(0, 0),
+                            garch_order = c(1, 1),
+                            model_type = "sGARCH",
+                            distribution = "norm") {
+  
+  spec <- ugarchspec(
+    variance.model = list(
+      model = model_type,
+      garchOrder = garch_order
+    ),
+    mean.model = list(
+      armaOrder = arma_order,
+      include.mean = TRUE
+    ),
+    distribution.model = distribution
+  )
+  
+  fit <- tryCatch(
+    ugarchfit(
+      spec = spec,
+      data = r,
+      solver = "hybrid"
+    ),
+    error = function(e) NULL
+  )
+  
+  return(fit)
+}
+
+# ============================================================
+# 3. DEFINE CANDIDATE MODELS
+# ============================================================
+# sGARCH = standard GARCH
+# gjrGARCH = asymmetric GARCH model
+# eGARCH = exponential GARCH model
+#
+# Normal and Student-t distributions are compared because
+# financial returns often have heavy tails.
+
+candidate_models <- list(
+  
+  # Standard GARCH models with constant mean
+  list(name = "sGARCH(1,1)-norm", arma = c(0,0), garch = c(1,1), model = "sGARCH", dist = "norm"),
+  list(name = "sGARCH(1,1)-std",  arma = c(0,0), garch = c(1,1), model = "sGARCH", dist = "std"),
+  
+  list(name = "sGARCH(1,2)-std",  arma = c(0,0), garch = c(1,2), model = "sGARCH", dist = "std"),
+  list(name = "sGARCH(2,1)-std",  arma = c(0,0), garch = c(2,1), model = "sGARCH", dist = "std"),
+  list(name = "sGARCH(2,2)-std",  arma = c(0,0), garch = c(2,2), model = "sGARCH", dist = "std"),
+  
+  # Asymmetric GARCH-type models
+  list(name = "gjrGARCH(1,1)-std", arma = c(0,0), garch = c(1,1), model = "gjrGARCH", dist = "std"),
+  list(name = "eGARCH(1,1)-std",   arma = c(0,0), garch = c(1,1), model = "eGARCH",   dist = "std"),
+  
+  # ARMA-GARCH models, useful especially for GALP because
+  # the Ljung-Box test suggested autocorrelation in returns.
+  list(name = "AR(1)-sGARCH(1,1)-std",    arma = c(1,0), garch = c(1,1), model = "sGARCH", dist = "std"),
+  list(name = "MA(1)-sGARCH(1,1)-std",    arma = c(0,1), garch = c(1,1), model = "sGARCH", dist = "std"),
+  list(name = "ARMA(1,1)-sGARCH(1,1)-std", arma = c(1,1), garch = c(1,1), model = "sGARCH", dist = "std")
+)
+
+# ============================================================
+# 4. FIT ALL CANDIDATE MODELS FOR EACH COMPANY
+# ============================================================
+
+all_fits <- list()
+model_selection <- data.frame()
+
+for (company in names(returns_list)) {
+  
+  cat("\n============================================================\n")
+  cat("FITTING MODELS FOR:", company, "\n")
+  cat("============================================================\n")
+  
+  r <- returns_list[[company]]
+  company_fits <- list()
+  
+  for (m in candidate_models) {
+    
+    cat("Estimating:", m$name, "\n")
+    
+    fit <- fit_garch_model(
+      r = r,
+      arma_order = m$arma,
+      garch_order = m$garch,
+      model_type = m$model,
+      distribution = m$dist
+    )
+    
+    company_fits[[m$name]] <- fit
+    
+    if (!is.null(fit)) {
+      
+      ic <- infocriteria(fit)
+      
+      model_selection <- rbind(
+        model_selection,
+        data.frame(
+          Company = company,
+          Model = m$name,
+          AIC = as.numeric(ic[1]),
+          BIC = as.numeric(ic[2]),
+          Shibata = as.numeric(ic[3]),
+          HannanQuinn = as.numeric(ic[4]),
+          Convergence = fit@fit$convergence
+        )
+      )
+      
+    } else {
+      
+      model_selection <- rbind(
+        model_selection,
+        data.frame(
+          Company = company,
+          Model = m$name,
+          AIC = NA,
+          BIC = NA,
+          Shibata = NA,
+          HannanQuinn = NA,
+          Convergence = NA
+        )
+      )
+    }
+  }
+  
+  all_fits[[company]] <- company_fits
+}
+
+# ============================================================
+# 5. MODEL SELECTION TABLE
+# ============================================================
+
+model_selection$AIC <- round(model_selection$AIC, 4)
+model_selection$BIC <- round(model_selection$BIC, 4)
+model_selection$Shibata <- round(model_selection$Shibata, 4)
+model_selection$HannanQuinn <- round(model_selection$HannanQuinn, 4)
+
+cat("\n=== FULL MODEL SELECTION TABLE ===\n")
+print(model_selection)
+
+write.csv(model_selection, "garch_model_selection_full.csv", row.names = FALSE)
+
+# ============================================================
+# 6. BEST MODEL BY AIC AND BIC
+# ============================================================
+
+best_by_aic <- data.frame()
+best_by_bic <- data.frame()
+
+for (company in names(returns_list)) {
+  
+  sub <- subset(model_selection, Company == company & !is.na(AIC) & Convergence == 0)
+  
+  best_aic <- sub[which.min(sub$AIC), ]
+  best_bic <- sub[which.min(sub$BIC), ]
+  
+  best_by_aic <- rbind(best_by_aic, best_aic)
+  best_by_bic <- rbind(best_by_bic, best_bic)
+}
+
+cat("\n=== BEST MODELS BY AIC ===\n")
+print(best_by_aic)
+
+cat("\n=== BEST MODELS BY BIC ===\n")
+print(best_by_bic)
+
+write.csv(best_by_aic, "garch_best_by_aic.csv", row.names = FALSE)
+write.csv(best_by_bic, "garch_best_by_bic.csv", row.names = FALSE)
+
+# ============================================================
+# 7. SAVE PRELIMINARY FINAL MODELS
+# ============================================================
+# For now, preliminary final models are selected by AIC.
+# In the next step we will check residual diagnostics.
+
+final_fits <- list()
+
+for (company in names(returns_list)) {
+  
+  best_model_name <- best_by_aic$Model[best_by_aic$Company == company]
+  final_fits[[company]] <- all_fits[[company]][[best_model_name]]
+  
+  cat("\nSelected preliminary model for", company, ":", best_model_name, "\n")
+}
+
+# ============================================================
+# 8. PRINT PARAMETER ESTIMATES OF PRELIMINARY FINAL MODELS
+# ============================================================
+
+cat("\n=== PARAMETER ESTIMATES OF PRELIMINARY FINAL MODELS ===\n")
+
+for (company in names(final_fits)) {
+  
+  cat("\n------------------------------------------------------------\n")
+  cat(company, "\n")
+  cat("------------------------------------------------------------\n")
+  
+  fit <- final_fits[[company]]
+  
+  if (!is.null(fit)) {
+    print(fit)
+  }
+}
+
+cat("\nStep (c) completed.\n")
+cat("Next step: residual diagnostics for the selected GARCH-type models.\n")
+
+
+
+# Step (d): Residual Diagnostics for Selected GARCH Models
+
+
+library(rugarch)
+library(FinTS)
+
+# ============================================================
+# 1. SELECT PRELIMINARY FINAL MODELS
+# ============================================================
+
+selected_model_names <- list(
+  EDP       = "sGARCH(1,1)-std",
+  GALP      = "eGARCH(1,1)-std",
+  MOTA      = "sGARCH(1,1)-std",
+  NAVIGATOR = "eGARCH(1,1)-std"
+)
+
+selected_fits <- list()
+
+for (company in names(selected_model_names)) {
+  model_name <- selected_model_names[[company]]
+  selected_fits[[company]] <- all_fits[[company]][[model_name]]
+  
+  cat("\nSelected model for", company, ":", model_name, "\n")
+}
+
+# ============================================================
+# 2. DIAGNOSTIC TESTS ON STANDARDIZED RESIDUALS
+# ============================================================
+# z_t = residual_t / conditional sigma_t
+#
+# We test:
+# - Ljung-Box on standardized residuals: remaining linear autocorrelation
+# - Ljung-Box on squared standardized residuals: remaining volatility dependence
+# - ARCH LM test on standardized residuals: remaining ARCH effects
+
+diagnostic_results <- data.frame()
+
+for (company in names(selected_fits)) {
+  
+  fit <- selected_fits[[company]]
+  z <- residuals(fit, standardize = TRUE)
+  z <- as.numeric(z)
+  z <- na.omit(z)
+  
+  lb_z_10  <- Box.test(z, lag = 10, type = "Ljung-Box")
+  lb_z_20  <- Box.test(z, lag = 20, type = "Ljung-Box")
+  
+  lb_z2_10 <- Box.test(z^2, lag = 10, type = "Ljung-Box")
+  lb_z2_20 <- Box.test(z^2, lag = 20, type = "Ljung-Box")
+  
+  arch_5   <- FinTS::ArchTest(z, lags = 5)
+  arch_10  <- FinTS::ArchTest(z, lags = 10)
+  
+  diagnostic_results <- rbind(
+    diagnostic_results,
+    
+    data.frame(
+      Company = company,
+      Test = "Ljung-Box standardized residuals",
+      Lag = 10,
+      Statistic = as.numeric(lb_z_10$statistic),
+      p_value = lb_z_10$p.value
+    ),
+    
+    data.frame(
+      Company = company,
+      Test = "Ljung-Box standardized residuals",
+      Lag = 20,
+      Statistic = as.numeric(lb_z_20$statistic),
+      p_value = lb_z_20$p.value
+    ),
+    
+    data.frame(
+      Company = company,
+      Test = "Ljung-Box squared standardized residuals",
+      Lag = 10,
+      Statistic = as.numeric(lb_z2_10$statistic),
+      p_value = lb_z2_10$p.value
+    ),
+    
+    data.frame(
+      Company = company,
+      Test = "Ljung-Box squared standardized residuals",
+      Lag = 20,
+      Statistic = as.numeric(lb_z2_20$statistic),
+      p_value = lb_z2_20$p.value
+    ),
+    
+    data.frame(
+      Company = company,
+      Test = "ARCH LM standardized residuals",
+      Lag = 5,
+      Statistic = as.numeric(arch_5$statistic),
+      p_value = arch_5$p.value
+    ),
+    
+    data.frame(
+      Company = company,
+      Test = "ARCH LM standardized residuals",
+      Lag = 10,
+      Statistic = as.numeric(arch_10$statistic),
+      p_value = arch_10$p.value
+    )
+  )
+}
+
+diagnostic_results$Statistic <- round(diagnostic_results$Statistic, 4)
+diagnostic_results$p_value   <- round(diagnostic_results$p_value, 4)
+
+cat("\n=== RESIDUAL DIAGNOSTIC RESULTS ===\n")
+print(diagnostic_results)
+
+write.csv(diagnostic_results, "garch_residual_diagnostics.csv", row.names = FALSE)
+
+# ============================================================
+# 3. ACF OF STANDARDIZED RESIDUALS
+# ============================================================
+
+png("GARCH_ACF_standardized_residuals.png", width = 1200, height = 900, res = 120)
+
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+for (company in names(selected_fits)) {
+  
+  z <- residuals(selected_fits[[company]], standardize = TRUE)
+  z <- as.numeric(na.omit(z))
+  
+  acf(z,
+      lag.max = 30,
+      main = paste(company, "— ACF Std. Residuals"),
+      col = "steelblue")
+}
+
+par(mfrow = c(1, 1))
+dev.off()
+
+# Show in R
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+for (company in names(selected_fits)) {
+  
+  z <- residuals(selected_fits[[company]], standardize = TRUE)
+  z <- as.numeric(na.omit(z))
+  
+  acf(z,
+      lag.max = 30,
+      main = paste(company, "— ACF Std. Residuals"),
+      col = "steelblue")
+}
+
+par(mfrow = c(1, 1))
+
+# ============================================================
+# 4. ACF OF SQUARED STANDARDIZED RESIDUALS
+# ============================================================
+
+png("GARCH_ACF_squared_standardized_residuals.png", width = 1200, height = 900, res = 120)
+
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+for (company in names(selected_fits)) {
+  
+  z <- residuals(selected_fits[[company]], standardize = TRUE)
+  z <- as.numeric(na.omit(z))
+  
+  acf(z^2,
+      lag.max = 30,
+      main = paste(company, "— ACF Squared Std. Residuals"),
+      col = "darkred")
+}
+
+par(mfrow = c(1, 1))
+dev.off()
+
+# Show in R
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+for (company in names(selected_fits)) {
+  
+  z <- residuals(selected_fits[[company]], standardize = TRUE)
+  z <- as.numeric(na.omit(z))
+  
+  acf(z^2,
+      lag.max = 30,
+      main = paste(company, "— ACF Squared Std. Residuals"),
+      col = "darkred")
+}
+
+par(mfrow = c(1, 1))
+
+# ============================================================
+# 5. HISTOGRAM AND QQ PLOTS OF STANDARDIZED RESIDUALS
+# ============================================================
+
+png("GARCH_hist_qq_standardized_residuals.png", width = 1400, height = 1200, res = 120)
+
+par(mfrow = c(4, 2), mar = c(4, 4, 3, 1))
+
+for (company in names(selected_fits)) {
+  
+  z <- residuals(selected_fits[[company]], standardize = TRUE)
+  z <- as.numeric(na.omit(z))
+  
+  hist(z,
+       breaks = 20,
+       freq = FALSE,
+       main = paste(company, "— Std. Residuals"),
+       xlab = "Standardized residuals",
+       col = "lightblue",
+       border = "white")
+  
+  curve(dnorm(x), add = TRUE, col = "red", lwd = 2)
+  
+  qqnorm(z,
+         main = paste(company, "— Q-Q Plot"),
+         pch = 16,
+         cex = 0.6,
+         col = "steelblue")
+  qqline(z, col = "red", lwd = 2)
+}
+
+par(mfrow = c(1, 1))
+dev.off()
+
+# Show in R
+par(mfrow = c(4, 2), mar = c(4, 4, 3, 1))
+
+for (company in names(selected_fits)) {
+  
+  z <- residuals(selected_fits[[company]], standardize = TRUE)
+  z <- as.numeric(na.omit(z))
+  
+  hist(z,
+       breaks = 20,
+       freq = FALSE,
+       main = paste(company, "— Std. Residuals"),
+       xlab = "Standardized residuals",
+       col = "lightblue",
+       border = "white")
+  
+  curve(dnorm(x), add = TRUE, col = "red", lwd = 2)
+  
+  qqnorm(z,
+         main = paste(company, "— Q-Q Plot"),
+         pch = 16,
+         cex = 0.6,
+         col = "steelblue")
+  qqline(z, col = "red", lwd = 2)
+}
+
+par(mfrow = c(1, 1))
+
+# ============================================================
+# 6. CONDITIONAL VOLATILITY PLOTS
+# ============================================================
+
+png("GARCH_conditional_volatility.png", width = 1200, height = 900, res = 120)
+
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+for (company in names(selected_fits)) {
+  
+  sigma_t <- sigma(selected_fits[[company]])
+  
+  plot(dates_r,
+       as.numeric(sigma_t),
+       type = "l",
+       col = "darkblue",
+       lwd = 1,
+       main = paste(company, "— Conditional Volatility"),
+       xlab = "Date",
+       ylab = "Sigma")
+}
+
+par(mfrow = c(1, 1))
+dev.off()
+
+# Show in R
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+for (company in names(selected_fits)) {
+  
+  sigma_t <- sigma(selected_fits[[company]])
+  
+  plot(dates_r,
+       as.numeric(sigma_t),
+       type = "l",
+       col = "darkblue",
+       lwd = 1,
+       main = paste(company, "— Conditional Volatility"),
+       xlab = "Date",
+       ylab = "Sigma")
+}
+
+par(mfrow = c(1, 1))
+
+# ============================================================
+# 7. PARAMETER ESTIMATES TABLE FOR SELECTED MODELS
+# ============================================================
+
+parameter_table <- data.frame()
+
+for (company in names(selected_fits)) {
+  
+  fit <- selected_fits[[company]]
+  coef_mat <- fit@fit$matcoef
+  
+  temp <- data.frame(
+    Company = company,
+    Parameter = rownames(coef_mat),
+    Estimate = coef_mat[, 1],
+    StdError = coef_mat[, 2],
+    t_value = coef_mat[, 3],
+    p_value = coef_mat[, 4]
+  )
+  
+  parameter_table <- rbind(parameter_table, temp)
+}
+
+parameter_table$Estimate <- round(parameter_table$Estimate, 5)
+parameter_table$StdError <- round(parameter_table$StdError, 5)
+parameter_table$t_value  <- round(parameter_table$t_value, 4)
+parameter_table$p_value  <- round(parameter_table$p_value, 4)
+
+cat("\n=== PARAMETER ESTIMATES FOR SELECTED MODELS ===\n")
+print(parameter_table)
+
+write.csv(parameter_table, "garch_selected_parameter_estimates.csv", row.names = FALSE)
+
+# ============================================================
+# 8. FINAL MESSAGE
+# ============================================================
+
+cat("\nStep (d) completed.\n")
+cat("Files saved:\n")
+cat(" - garch_residual_diagnostics.csv\n")
+cat(" - garch_selected_parameter_estimates.csv\n")
+cat(" - GARCH_ACF_standardized_residuals.png\n")
+cat(" - GARCH_ACF_squared_standardized_residuals.png\n")
+cat(" - GARCH_hist_qq_standardized_residuals.png\n")
+cat(" - GARCH_conditional_volatility.png\n")
+
