@@ -1,0 +1,559 @@
+setwd("C:/Users/lucia/OneDrive/Desktop/TECNICO/2 semestre/time series/research project")
+
+# ============================================================
+# TIME SERIES - Research Project 2025/2026
+# Assignment 1 - SOI Time Series
+# Step (a): Initial Examination of the Data
+# ============================================================
+
+# --- 1. Load required libraries ---
+library(forecast)   # auto.arima, Arima, forecast
+library(tseries)    # adf.test, kpss.test, jarque.bera.test
+library(ggplot2)    # plotting
+library(moments)    # skewness, kurtosis
+
+# --- 2. Load and parse the data ---
+raw <- read.csv("Time_Series_SOI_2010-2025.txt", header = FALSE,
+                col.names = c("YearMonth", "SOI"))
+
+# Build a proper time series object: monthly, starting Jan 2010
+soi <- ts(raw$SOI, start = c(2010, 1), frequency = 12)
+
+cat("=== BASIC SUMMARY ===\n")
+print(summary(soi))
+cat("\nLength:", length(soi), "observations\n")
+cat("Start:", start(soi), "\n")
+cat("End:  ", end(soi), "\n")
+cat("Frequency:", frequency(soi), "(monthly)\n")
+
+# --- 3. Time plot ---
+plot(soi,
+     main = "Southern Oscillation Index (SOI) — Jan 2010 to Dec 2025",
+     ylab = "SOI",
+     xlab = "Year",
+     col  = "steelblue",
+     lwd  = 1.5)
+abline(h = 0, col = "red", lty = 2)
+grid()
+
+# --- 4. Summary statistics ---
+cat("\n=== DESCRIPTIVE STATISTICS ===\n")
+cat("Mean:    ", round(mean(soi), 3), "\n")
+cat("Median:  ", round(median(soi), 3), "\n")
+cat("Std Dev: ", round(sd(soi), 3), "\n")
+cat("Min:     ", round(min(soi), 3), "\n")
+cat("Max:     ", round(max(soi), 3), "\n")
+cat("Skewness:", round(moments::skewness(soi), 3), "\n")
+cat("Kurtosis:", round(moments::kurtosis(soi), 3), "\n")
+
+# --- 5. Seasonal subseries plot ---
+monthplot(soi,
+          main = "Seasonal Subseries Plot — SOI",
+          ylab = "SOI",
+          xlab = "Month")
+
+# --- 6. Boxplot by month ---
+month_labels <- c("Jan","Feb","Mar","Apr","May","Jun",
+                  "Jul","Aug","Sep","Oct","Nov","Dec")
+month_factor <- factor(cycle(soi), labels = month_labels)
+
+boxplot(as.numeric(soi) ~ month_factor,
+        main = "SOI by Month (2010–2025)",
+        ylab = "SOI",
+        xlab = "Month",
+        col  = "lightblue",
+        outline = TRUE)
+abline(h = 0, col = "red", lty = 2)
+
+# --- 7. ACF and PACF of the raw series ---
+par(mfrow = c(2, 1))
+
+acf(soi,
+    lag.max = 48,
+    main    = "ACF of SOI (raw series)",
+    col     = "steelblue")
+
+pacf(soi,
+     lag.max = 48,
+     main    = "PACF of SOI (raw series)",
+     col     = "steelblue")
+
+par(mfrow = c(1, 1))
+
+# --- 8. STL decomposition ---
+soi_stl <- stl(soi, s.window = "periodic")
+plot(soi_stl,
+     main = "STL Decomposition of SOI")
+
+cat("\n=== STL DECOMPOSITION ===\n")
+cat("Seasonal range: [",
+    round(min(soi_stl$time.series[,"seasonal"]), 2), ",",
+    round(max(soi_stl$time.series[,"seasonal"]), 2), "]\n")
+cat("Trend range:    [",
+    round(min(soi_stl$time.series[,"trend"]), 2), ",",
+    round(max(soi_stl$time.series[,"trend"]), 2), "]\n")
+cat("Remainder sd:   ",
+    round(sd(soi_stl$time.series[,"remainder"]), 3), "\n")
+
+# --- 9. Stationarity tests ---
+cat("\n=== STATIONARITY TESTS ===\n")
+
+# Augmented Dickey-Fuller: H0 = unit root (non-stationary)
+adf_result <- adf.test(soi)
+cat("ADF Test:\n")
+cat("  Statistic:", round(adf_result$statistic, 4), "\n")
+cat("  p-value:  ", round(adf_result$p.value, 4), "\n")
+cat("  Conclusion:", ifelse(adf_result$p.value < 0.05,
+                            "Reject H0 → series appears stationary",
+                            "Fail to reject H0 → series may be non-stationary"), "\n\n")
+
+# KPSS: H0 = stationary
+kpss_result <- kpss.test(soi, null = "Level")
+cat("KPSS Test (null: level stationary):\n")
+cat("  Statistic:", round(kpss_result$statistic, 4), "\n")
+cat("  p-value:  ", round(kpss_result$p.value, 4), "\n")
+cat("  Conclusion:", ifelse(kpss_result$p.value > 0.05,
+                            "Fail to reject H0 → series appears stationary",
+                            "Reject H0 → series may be non-stationary"), "\n")
+
+
+
+# Step (b): Transformations
+
+
+# --- Box-Cox on shifted series ---
+# SOI contains negative values, so we shift the data only for this check.
+soi_shifted <- soi - min(soi) + 1
+
+lambda <- BoxCox.lambda(soi_shifted, method = "loglik")
+cat("\n=== BOX-COX TEST (shifted series) ===\n")
+cat("Optimal lambda:", round(lambda, 4), "\n")
+cat("Conclusion:",
+    ifelse(abs(lambda - 1) < 0.5,
+           "lambda close to 1 → no strong transformation needed",
+           "lambda far from 1 → transformation may be considered"), "\n")
+
+# --- Visual comparison: original vs transformed ---
+par(mfrow = c(2, 1))
+
+plot(soi,
+     main = "SOI — Original Series",
+     ylab = "SOI", xlab = "Year",
+     col  = "steelblue", lwd = 1.5)
+abline(h = 0, col = "red", lty = 2)
+
+plot(BoxCox(soi_shifted, lambda),
+     main = paste0("Box-Cox Transformed SOI (lambda = ",
+                   round(lambda, 3), ") — for reference only"),
+     ylab = "Transformed SOI", xlab = "Year",
+     col  = "darkgreen", lwd = 1.5)
+
+par(mfrow = c(1, 1))
+
+cat("\n=== TRANSFORMATION CONCLUSION ===\n")
+cat("The SOI series contains negative values, therefore a direct log transformation is not appropriate.\n")
+cat("The visual inspection suggests approximately constant variance over time.\n")
+cat("Skewness is close to zero, indicating an approximately symmetric distribution.\n")
+cat("The Box-Cox check on the shifted series gives lambda =", round(lambda, 3), ".\n")
+cat("Overall, no transformation is applied and the analysis proceeds with the original SOI series.\n")
+
+
+
+# Step (c): Initial Identification of Dependence Orders
+
+cat("\n=== REGULAR DIFFERENCING ===\n")
+
+d_suggested_adf <- ndiffs(soi, test = "adf")
+cat("ndiffs (ADF test):", d_suggested_adf, "\n")
+
+d_suggested_kpss <- ndiffs(soi, test = "kpss")
+cat("ndiffs (KPSS test):", d_suggested_kpss, "\n")
+
+# ============================================================
+# 2. HOW MANY SEASONAL DIFFERENCES? (D)
+# ============================================================
+cat("\n=== SEASONAL DIFFERENCING ===\n")
+
+D_suggested <- nsdiffs(soi)
+cat("nsdiffs:", D_suggested, "\n")
+
+# ============================================================
+# 3. APPLY DIFFERENCING AND INSPECT ACF/PACF
+# ============================================================
+
+# --- Case A: no differencing ---
+# Raw ACF/PACF were already plotted in Step (a).
+
+# --- Case B: first regular difference ---
+soi_diff1 <- diff(soi, differences = 1)
+
+par(mfrow = c(2, 1))
+acf(soi_diff1,
+    lag.max = 48,
+    main    = "ACF of SOI — First Difference (d=1)",
+    col     = "steelblue")
+pacf(soi_diff1,
+     lag.max = 48,
+     main    = "PACF of SOI — First Difference (d=1)",
+     col     = "steelblue")
+par(mfrow = c(1, 1))
+
+cat("\n=== STATIONARITY TESTS ON DIFFERENCED SERIES (d=1) ===\n")
+adf_d1 <- adf.test(soi_diff1)
+cat("ADF p-value:", round(adf_d1$p.value, 4), "\n")
+
+kpss_d1 <- kpss.test(soi_diff1, null = "Level")
+cat("KPSS p-value:", round(kpss_d1$p.value, 4), "\n")
+
+# --- Case C: seasonal difference ---
+soi_sdiff <- diff(soi, lag = 12, differences = 1)
+
+par(mfrow = c(2, 1))
+acf(soi_sdiff,
+    lag.max = 48,
+    main    = "ACF of SOI — Seasonal Difference (D=1, lag=12)",
+    col     = "steelblue")
+pacf(soi_sdiff,
+     lag.max = 48,
+     main    = "PACF of SOI — Seasonal Difference (D=1, lag=12)",
+     col     = "steelblue")
+par(mfrow = c(1, 1))
+
+# ============================================================
+# 4. AUTO.ARIMA AS A REFERENCE
+# ============================================================
+cat("\n=== AUTO.ARIMA SUGGESTION ===\n")
+
+auto_fit <- auto.arima(soi,
+                       max.p = 3, max.q = 3,
+                       max.P = 2, max.Q = 2,
+                       d = NA, D = NA,
+                       stepwise = FALSE,
+                       approximation = FALSE,
+                       ic = "aic",
+                       trace = TRUE)
+
+cat("\nBest model selected by auto.arima:\n")
+print(auto_fit)
+
+
+# Step (d): Parameter Estimation
+
+# ============================================================
+# 1. CHECK WHETHER TO INCLUDE THE MEAN
+# ============================================================
+
+cat("\n=== MEAN VS NO MEAN COMPARISON ===\n")
+
+fit_mean_check <- Arima(soi,
+                        order = c(1, 0, 1),
+                        include.mean = TRUE,
+                        method = "ML")
+
+fit_nomean_check <- Arima(soi,
+                          order = c(1, 0, 1),
+                          include.mean = FALSE,
+                          method = "ML")
+
+cat("\nARIMA(1,0,1) with mean:\n")
+print(fit_mean_check)
+
+cat("\nARIMA(1,0,1) without mean:\n")
+print(fit_nomean_check)
+
+cat("\nAIC comparison:\n")
+print(AIC(fit_mean_check, fit_nomean_check))
+
+cat("\nBIC comparison:\n")
+print(BIC(fit_mean_check, fit_nomean_check))
+
+# ============================================================
+# 2. FIT CANDIDATE MODELS
+# ============================================================
+# The following models are estimated and compared.
+# include.mean is kept FALSE only if the previous comparison supports it.
+# If the model with mean is clearly better, change include.mean = TRUE below.
+
+fit1 <- Arima(soi,
+              order = c(1, 0, 1),
+              include.mean = FALSE,
+              method = "ML")
+
+fit2 <- Arima(soi,
+              order = c(2, 0, 0),
+              include.mean = FALSE,
+              method = "ML")
+
+fit3 <- Arima(soi,
+              order = c(1, 0, 1),
+              seasonal = list(order = c(2, 0, 0), period = 12),
+              include.mean = FALSE,
+              method = "ML")
+
+fit4 <- Arima(soi,
+              order = c(2, 0, 2),
+              include.mean = FALSE,
+              method = "ML")
+
+# Additional seasonal candidate model, useful because the data are monthly
+fit5 <- Arima(soi,
+              order = c(1, 0, 1),
+              seasonal = list(order = c(1, 0, 0), period = 12),
+              include.mean = FALSE,
+              method = "ML")
+
+# ============================================================
+# 3. PRINT PARAMETER ESTIMATES
+# ============================================================
+
+cat("\n=== MODEL 1: ARIMA(1,0,1) ===\n")
+print(fit1)
+cat("\n")
+
+cat("=== MODEL 2: ARIMA(2,0,0) ===\n")
+print(fit2)
+cat("\n")
+
+cat("=== MODEL 3: ARIMA(1,0,1)(2,0,0)[12] ===\n")
+print(fit3)
+cat("\n")
+
+cat("=== MODEL 4: ARIMA(2,0,2) ===\n")
+print(fit4)
+cat("\n")
+
+cat("=== MODEL 5: ARIMA(1,0,1)(1,0,0)[12] ===\n")
+print(fit5)
+cat("\n")
+
+# ============================================================
+# 4. MODEL COMPARISON TABLE
+# ============================================================
+
+cat("=== MODEL COMPARISON ===\n")
+
+models <- list(fit1, fit2, fit3, fit4, fit5)
+
+model_names <- c("ARIMA(1,0,1)",
+                 "ARIMA(2,0,0)",
+                 "ARIMA(1,0,1)(2,0,0)[12]",
+                 "ARIMA(2,0,2)",
+                 "ARIMA(1,0,1)(1,0,0)[12]")
+
+results <- data.frame(
+  Model   = model_names,
+  LogLik  = sapply(models, function(m) round(as.numeric(logLik(m)), 2)),
+  AIC     = sapply(models, function(m) round(AIC(m), 2)),
+  BIC     = sapply(models, function(m) round(BIC(m), 2)),
+  AICc    = sapply(models, function(m) {
+    k <- length(m$coef) + 1
+    n <- length(soi)
+    aic <- AIC(m)
+    round(aic + 2*k*(k+1)/(n-k-1), 2)
+  }),
+  sigma2  = sapply(models, function(m) round(m$sigma2, 3))
+)
+
+print(results)
+
+cat("\nBest model by AIC: ", model_names[which.min(results$AIC)], "\n")
+cat("Best model by BIC: ", model_names[which.min(results$BIC)], "\n")
+cat("Best model by AICc:", model_names[which.min(results$AICc)], "\n")
+
+# ============================================================
+# 5. AUTOMATIC PRELIMINARY SELECTION BY AICc
+# ============================================================
+# This does not replace residual diagnostics.
+# It only selects the best candidate according to AICc.
+
+fit_final <- models[[which.min(results$AICc)]]
+fit_final_name <- model_names[which.min(results$AICc)]
+
+cat("\n=== PRELIMINARY SELECTED MODEL ===\n")
+cat("Selected model by AICc:", fit_final_name, "\n")
+print(fit_final)
+
+
+
+# Step (e): Residual Diagnostics and Model Choice
+
+
+cat("\n=== RESIDUAL DIAGNOSTICS FOR SELECTED MODEL ===\n")
+cat("Model:", fit_final_name, "\n")
+
+# Extract standardized residuals
+resid_raw <- residuals(fit_final)
+resid_std <- resid_raw / sqrt(fit_final$sigma2)
+
+# ============================================================
+# 1. TIME PLOT OF STANDARDIZED RESIDUALS
+# ============================================================
+
+plot(resid_std,
+     main = paste("Standardized Residuals —", fit_final_name),
+     ylab = "Standardized Residuals",
+     xlab = "Year",
+     col  = "steelblue",
+     lwd  = 1.2,
+     type = "l")
+abline(h =  0, col = "black", lty = 1)
+abline(h =  2, col = "red",   lty = 2)
+abline(h = -2, col = "red",   lty = 2)
+legend("topright",
+       legend = c("Std. Residuals", "±2 bounds"),
+       col    = c("steelblue", "red"),
+       lty    = c(1, 2), bty = "n")
+
+# ============================================================
+# 2. ACF AND PACF OF RESIDUALS
+# ============================================================
+
+par(mfrow = c(2, 1))
+acf(resid_raw,
+    lag.max = 36,
+    main    = paste("ACF of Residuals —", fit_final_name),
+    col     = "steelblue")
+pacf(resid_raw,
+     lag.max = 36,
+     main    = paste("PACF of Residuals —", fit_final_name),
+     col     = "steelblue")
+par(mfrow = c(1, 1))
+
+# ============================================================
+# 3. LJUNG-BOX TEST
+# ============================================================
+
+cat("\n=== LJUNG-BOX TEST ===\n")
+cat("H0: residuals are white noise, i.e. no remaining autocorrelation.\n\n")
+
+# Fit degrees of freedom are based on the number of estimated coefficients.
+# This makes the test coherent even if the selected model is not ARIMA(1,0,1).
+fitdf_final <- length(fit_final$coef)
+
+for (h in c(10, 15, 20, 24)) {
+  lb <- Box.test(resid_raw,
+                 lag = h,
+                 type = "Ljung-Box",
+                 fitdf = fitdf_final)
+  
+  cat(sprintf("Lag %2d: statistic = %6.3f, df = %2d, p-value = %.4f  %s\n",
+              h,
+              lb$statistic,
+              lb$parameter,
+              lb$p.value,
+              ifelse(lb$p.value > 0.05, "✓ OK", "✗ Reject H0")))
+}
+
+# ============================================================
+# 4. NORMALITY OF RESIDUALS
+# ============================================================
+
+cat("\n=== NORMALITY TESTS ===\n")
+
+# Shapiro-Wilk test
+sw <- shapiro.test(as.numeric(resid_raw))
+cat("Shapiro-Wilk test:\n")
+cat("  W =", round(sw$statistic, 4), "\n")
+cat("  p-value =", round(sw$p.value, 4), "\n")
+cat("  Conclusion:", ifelse(sw$p.value > 0.05,
+                            "Fail to reject H0 → residuals appear normal",
+                            "Reject H0 → residuals deviate from normality"), "\n\n")
+
+# Jarque-Bera test
+jb <- jarque.bera.test(as.numeric(resid_raw))
+cat("Jarque-Bera test:\n")
+cat("  Statistic =", round(jb$statistic, 4), "\n")
+cat("  p-value =", round(jb$p.value, 4), "\n")
+cat("  Conclusion:", ifelse(jb$p.value > 0.05,
+                            "Fail to reject H0 → residuals appear normal",
+                            "Reject H0 → residuals deviate from normality"), "\n")
+
+# ============================================================
+# 5. HISTOGRAM + QQ PLOT
+# ============================================================
+
+par(mfrow = c(1, 2))
+
+hist(resid_std,
+     breaks = 20,
+     freq   = FALSE,
+     main   = "Histogram of Standardized Residuals",
+     xlab   = "Standardized Residuals",
+     col    = "lightblue",
+     border = "white")
+
+curve(dnorm(x, mean = 0, sd = 1),
+      add = TRUE, col = "red", lwd = 2)
+
+legend("topright",
+       legend = "N(0,1)",
+       col = "red",
+       lwd = 2,
+       bty = "n")
+
+qqnorm(resid_std,
+       main = "Normal Q-Q Plot of Standardized Residuals",
+       col  = "steelblue",
+       pch  = 16,
+       cex  = 0.7)
+qqline(resid_std, col = "red", lwd = 2)
+
+par(mfrow = c(1, 1))
+
+# ============================================================
+# 6. TSDIAG — FULL DIAGNOSTIC PANEL
+# ============================================================
+
+tsdiag(fit_final, gof.lag = 24)
+
+# ============================================================
+# 7. DIAGNOSTIC SUMMARY
+# ============================================================
+
+cat("\n=== DIAGNOSTIC SUMMARY ===\n")
+cat("Selected model:", fit_final_name, "\n")
+cat("Estimated coefficients:\n")
+print(fit_final$coef)
+cat("\nsigma^2 =", round(fit_final$sigma2, 4), "\n")
+
+cat("\nChecks to discuss in the report:\n")
+cat("  [ ] Residuals scatter randomly around zero\n")
+cat("  [ ] ACF/PACF of residuals mostly within confidence bands\n")
+cat("  [ ] Ljung-Box p-values are greater than 0.05\n")
+cat("  [ ] Residuals are approximately normal, or deviations are mild\n")
+cat("  [ ] The final model balances goodness of fit and parsimony\n")
+
+
+# ============================================================
+# TIME SERIES - Research Project 2025/2026
+# Assignment 1 - SOI Time Series
+# Step (f): Forecasting
+# ============================================================
+
+cat("\n=== 5-STEP AHEAD FORECAST ===\n")
+
+soi_forecast <- forecast(fit_final,
+                         h = 5,
+                         level = 95)
+
+print(soi_forecast)
+
+plot(soi_forecast,
+     main = paste("SOI Forecast — 5 Months Ahead —", fit_final_name),
+     ylab = "SOI",
+     xlab = "Year",
+     col = "steelblue")
+
+forecast_table <- data.frame(
+  Period   = time(soi_forecast$mean),
+  Forecast = round(as.numeric(soi_forecast$mean), 3),
+  Lower_95 = round(as.numeric(soi_forecast$lower[, 1]), 3),
+  Upper_95 = round(as.numeric(soi_forecast$upper[, 1]), 3)
+)
+
+cat("\nForecast table with 95% prediction intervals:\n")
+print(forecast_table)
+
+# ============================================================
+# END OF ASSIGNMENT 1 SCRIPT
+# ============================================================
